@@ -17,10 +17,11 @@
 
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { LINK_TYPE_COLORS, LINK_TYPE_LABELS, type LinkType } from "@/lib/graph-utils";
 import { useTheme } from "@/lib/theme";
+import { Tag, X, ChevronDown, Check } from "lucide-react";
 
 /** シミュレーション中に変化するノードの位置・速度を含む拡張型 */
 interface GraphNode {
@@ -97,6 +98,50 @@ export function KnowledgeGraph({ nodes: rawNodes, edges: rawEdges }: Props) {
   const router = useRouter();
   const isDark = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // ---- タグフィルタ ----
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [tagSearch, setTagSearch] = useState("");
+
+  // 全ノードから重複排除してタグ一覧を生成（五十音順）
+  const allTags = useMemo(
+    () => [...new Set(rawNodes.flatMap((n) => n.tags))].sort((a, b) => a.localeCompare(b, "ja")),
+    [rawNodes]
+  );
+
+  // パネル内検索で絞り込んだタグ一覧
+  const visibleTags = useMemo(
+    () => allTags.filter((t) => t.toLowerCase().includes(tagSearch.toLowerCase())),
+    [allTags, tagSearch]
+  );
+
+  function toggleTag(tag: string) {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  }
+
+  // 選択タグが 0 件 → 全ノード表示。1 件以上 → いずれかのタグを持つノードのみ表示。
+  const filteredNodes = useMemo(
+    () =>
+      selectedTags.length === 0
+        ? rawNodes
+        : rawNodes.filter((n) => n.tags.some((t) => selectedTags.includes(t))),
+    [rawNodes, selectedTags]
+  );
+
+  // フィルタ後のノード ID セット（エッジの絞り込みに使う）
+  const filteredNodeIds = useMemo(
+    () => new Set(filteredNodes.map((n) => n.id)),
+    [filteredNodes]
+  );
+
+  // 両端ノードがどちらもフィルタ後に残っているエッジのみ表示
+  const filteredEdges = useMemo(
+    () => rawEdges.filter((e) => filteredNodeIds.has(e.sourceId) && filteredNodeIds.has(e.targetId)),
+    [rawEdges, filteredNodeIds]
+  );
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { width, height } = useDimensions(containerRef);
 
@@ -105,6 +150,9 @@ export function KnowledgeGraph({ nodes: rawNodes, edges: rawEdges }: Props) {
   // 走ってしまう。useRef なら値の変更が React のレンダリングサイクルを経由しない。
   const simNodes = useRef<GraphNode[]>([]);
   const dragging = useRef<{ node: GraphNode; offsetX: number; offsetY: number } | null>(null);
+  // mousedown 後にマウスが実際に動いたかどうかのフラグ。
+  // true になった場合のみドラッグ扱いにし、false のままなら mouseup をクリックとして処理する。
+  const hasMoved = useRef(false);
 
   // パン・ズームのビュー変換（Canvas の座標系オフセット）
   // x, y: 平行移動量、scale: 拡大率
@@ -123,16 +171,16 @@ export function KnowledgeGraph({ nodes: rawNodes, edges: rawEdges }: Props) {
    *   半径 150px は NODE_RADIUS(22) × 6.8 ≈ 十分な初期間隔。
    */
   useEffect(() => {
-    simNodes.current = rawNodes.map((n, i) => ({
+    simNodes.current = filteredNodes.map((n, i) => ({
       ...n,
-      x: n.x ?? width / 2 + Math.cos((i / rawNodes.length) * Math.PI * 2) * 150,
-      y: n.y ?? height / 2 + Math.sin((i / rawNodes.length) * Math.PI * 2) * 150,
+      x: n.x ?? width / 2 + Math.cos((i / filteredNodes.length) * Math.PI * 2) * 150,
+      y: n.y ?? height / 2 + Math.sin((i / filteredNodes.length) * Math.PI * 2) * 150,
       vx: 0,
       vy: 0,
       fx: null,
       fy: null,
     }));
-  }, [rawNodes, width, height]);
+  }, [filteredNodes, width, height]);
 
   /**
    * キャンバス座標（スクリーン座標）からワールド座標（シミュレーション座標）に変換する。
@@ -184,7 +232,7 @@ export function KnowledgeGraph({ nodes: rawNodes, edges: rawEdges }: Props) {
     const nodeById = new Map(ns.map((n) => [n.id, n]));
 
     // [1] バネ力
-    for (const edge of rawEdges) {
+    for (const edge of filteredEdges) {
       const src = nodeById.get(edge.sourceId);
       const tgt = nodeById.get(edge.targetId);
       if (!src || !tgt) continue;
@@ -231,7 +279,7 @@ export function KnowledgeGraph({ nodes: rawNodes, edges: rawEdges }: Props) {
         n.y = (n.y ?? cy) + n.vy!;
       }
     }
-  }, [rawEdges, width, height]);
+  }, [filteredEdges, width, height]);
 
   /**
    * Canvas に現在のシミュレーション状態を描画する。
@@ -255,7 +303,7 @@ export function KnowledgeGraph({ nodes: rawNodes, edges: rawEdges }: Props) {
     const nodeById = new Map(simNodes.current.map((n) => [n.id, n]));
 
     // ---- エッジの描画 ----
-    for (const edge of rawEdges) {
+    for (const edge of filteredEdges) {
       const src = nodeById.get(edge.sourceId);
       const tgt = nodeById.get(edge.targetId);
       if (!src || !tgt) continue;
@@ -323,7 +371,7 @@ export function KnowledgeGraph({ nodes: rawNodes, edges: rawEdges }: Props) {
     }
 
     ctx.restore();
-  }, [rawEdges, isDark]);
+  }, [filteredEdges, isDark]);
 
   /**
    * アニメーションループ。requestAnimationFrame で毎フレーム tick → draw を実行。
@@ -370,6 +418,7 @@ export function KnowledgeGraph({ nodes: rawNodes, edges: rawEdges }: Props) {
 
   /** ドラッグ開始: ノードを固定座標（fx/fy）にピン止めする */
   function onMouseDown(e: React.MouseEvent) {
+    hasMoved.current = false; // mousedown のたびにリセット
     const node = getNodeAt(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
     if (node) {
       const { wx, wy } = toWorld(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
@@ -388,6 +437,7 @@ export function KnowledgeGraph({ nodes: rawNodes, edges: rawEdges }: Props) {
   function onMouseMove(e: React.MouseEvent) {
     const node = getNodeAt(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
     if (dragging.current) {
+      hasMoved.current = true; // 実際に動いた = ドラッグ確定
       const { wx, wy } = toWorld(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
       // オフセット分を引いてノード中心をカーソルに追従させる
       dragging.current.node.fx = wx - dragging.current.offsetX;
@@ -410,14 +460,15 @@ export function KnowledgeGraph({ nodes: rawNodes, edges: rawEdges }: Props) {
 
   function onMouseUp(e: React.MouseEvent) {
     if (dragging.current) {
-      // ドラッグ終了: ピン止めを解除して物理シミュレーションに戻す
-      dragging.current.node.fx = null;
-      dragging.current.node.fy = null;
+      const node = dragging.current.node;
+      // ピン止めを解除して物理シミュレーションに戻す
+      node.fx = null;
+      node.fy = null;
       dragging.current = null;
-    } else {
-      // クリック（ドラッグなし）: ノードへの遷移
-      const node = getNodeAt(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
-      if (node) router.push(`/entries/${node.id}`);
+      // hasMoved が false = マウスが動いていない = クリックと判定してページ遷移
+      if (!hasMoved.current) {
+        router.push(`/entries/${node.id}`);
+      }
     }
   }
 
@@ -494,6 +545,88 @@ export function KnowledgeGraph({ nodes: rawNodes, edges: rawEdges }: Props) {
           <p className="text-slate-400 dark:text-slate-600 text-sm">
             記事を作成するとグラフに表示されます
           </p>
+        </div>
+      )}
+
+      {/* タグフィルタ ドロップダウン */}
+      {allTags.length > 0 && (
+        <div className="absolute top-4 left-4 z-10">
+          {/* トグルボタン */}
+          <button
+            type="button"
+            onClick={() => setFilterOpen((v) => !v)}
+            className="flex items-center gap-2 px-3 py-2 bg-white/90 dark:bg-slate-900/80 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm text-sm text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900 transition-colors"
+          >
+            <Tag size={13} className="text-slate-400 dark:text-slate-500" />
+            タグフィルタ
+            {selectedTags.length > 0 && (
+              <span className="bg-blue-600 text-white text-xs font-medium px-1.5 py-0.5 rounded-full leading-none">
+                {selectedTags.length}
+              </span>
+            )}
+            <ChevronDown
+              size={13}
+              className={`text-slate-400 dark:text-slate-500 transition-transform ${filterOpen ? "rotate-180" : ""}`}
+            />
+          </button>
+
+          {/* ドロップダウンパネル */}
+          {filterOpen && (
+            <div className="mt-1.5 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden">
+              {/* 検索 */}
+              <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800">
+                <input
+                  type="text"
+                  value={tagSearch}
+                  onChange={(e) => setTagSearch(e.target.value)}
+                  placeholder="タグを検索..."
+                  className="w-full text-xs bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-md px-2 py-1.5 focus:outline-none"
+                  autoFocus
+                />
+              </div>
+
+              {/* タグ一覧（スクロール可能） */}
+              <ul className="max-h-52 overflow-y-auto py-1">
+                {visibleTags.length === 0 && (
+                  <li className="px-3 py-2 text-xs text-slate-400 dark:text-slate-500">
+                    一致するタグがありません
+                  </li>
+                )}
+                {visibleTags.map((tag) => {
+                  const active = selectedTags.includes(tag);
+                  return (
+                    <li key={tag}>
+                      <button
+                        type="button"
+                        onClick={() => toggleTag(tag)}
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 text-xs transition-colors ${
+                          active
+                            ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                            : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        <span>{tag}</span>
+                        {active && <Check size={11} className="text-blue-600 dark:text-blue-400 shrink-0" />}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {/* フッター: クリアボタン */}
+              {selectedTags.length > 0 && (
+                <div className="px-3 py-2 border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedTags([]); setTagSearch(""); }}
+                    className="flex items-center gap-1 text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
+                  >
+                    <X size={11} /> 選択をクリア（{selectedTags.length}件）
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

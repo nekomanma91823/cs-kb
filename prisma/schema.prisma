@@ -91,3 +91,20 @@ model KnowledgeLink {
   @@unique([sourceId, targetId, linkType])
   @@map("knowledge_links")
 }
+
+/// 辞書用語エンティティ
+///
+/// term: 用語名（一意）。「多重共線性」「勾配降下法」など。
+/// definition: 用語の定義・説明文。1〜数文程度。
+/// aliases: 別名・略称の配列。「SGD」→「確率的勾配降下法」など。
+///   検索時に aliases にもヒットさせるために使う。
+model GlossaryTerm {
+  id         String   @id @default(cuid())
+  term       String   @unique
+  definition String
+  aliases    String[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("glossary_terms")
+}

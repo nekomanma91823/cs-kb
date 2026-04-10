@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
-import { LinkManager } from "@/components/LinkManager";
+import { EntryRightPanel } from "@/components/EntryRightPanel";
 import { formatDate, formatDistanceToNow } from "@/lib/date-utils";
 import { Edit, ArrowLeft, Calendar, Clock } from "lucide-react";
 import { DeleteButton } from "./DeleteButton";
@@ -100,17 +100,13 @@ export default async function EntryPage({ params }: { params: Params }) {
         </div>
       </article>
 
-      {/* Right panel: Links */}
-      <aside className="w-64 shrink-0 overflow-y-auto border-l border-slate-200 dark:border-slate-800 p-5">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-4">
-          ナレッジリンク
-        </h3>
-        <LinkManager
-          entryId={id}
-          outgoingLinks={safeEntry.outgoingLinks as Parameters<typeof LinkManager>[0]["outgoingLinks"]}
-          incomingLinks={safeEntry.incomingLinks as Parameters<typeof LinkManager>[0]["incomingLinks"]}
-        />
-      </aside>
+      {/* Right panel: Links + Glossary */}
+      <EntryRightPanel
+        entryId={id}
+        outgoingLinks={safeEntry.outgoingLinks as Parameters<typeof EntryRightPanel>[0]["outgoingLinks"]}
+        incomingLinks={safeEntry.incomingLinks as Parameters<typeof EntryRightPanel>[0]["incomingLinks"]}
+        isWriter={writer}
+      />
     </div>
   );
 }

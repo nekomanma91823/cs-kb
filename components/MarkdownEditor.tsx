@@ -44,6 +44,7 @@ const TOOLBAR_ACTIONS = [
   { label: "H2",  title: "見出し2",        prefix: "## " },
   { label: "H3",  title: "見出し3",        prefix: "### " },
   { label: "---", title: "区切り線",        insert: "\n---\n" },
+  { label: "▶",  title: "トグル（折り畳み）", insert: "<details>\n<summary>タイトル</summary>\n\n内容\n\n</details>\n" },
 ];
 
 export function MarkdownEditor({ value, onChange, placeholder }: Props) {

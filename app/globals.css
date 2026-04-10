@@ -93,6 +93,56 @@
   margin: 2em 0;
 }
 
+/* details/summary トグル */
+.prose details {
+  margin: 0.75rem 0;
+  border: 1px solid #e2e8f0;   /* slate-200 */
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+.dark .prose details {
+  border-color: #334155;        /* slate-700 */
+}
+
+.prose summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: #f1f5f9;          /* slate-100 */
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #374151;               /* slate-700 */
+  list-style: none;
+  transition: background 0.15s;
+}
+.prose summary::-webkit-details-marker { display: none; }
+.dark .prose summary {
+  background: #1e293b;          /* slate-800 */
+  color: #cbd5e1;               /* slate-300 */
+}
+
+.prose summary:hover { background: #e2e8f0; }  /* slate-200 */
+.dark .prose summary:hover { background: #293548; }
+
+/* ▶ アイコン（::before 擬似要素） */
+.prose summary::before {
+  content: "▶";
+  font-size: 0.65rem;
+  color: #94a3b8;               /* slate-400 */
+  transition: transform 0.2s;
+  display: inline-block;
+}
+.dark .prose summary::before { color: #64748b; }   /* slate-500 */
+.prose details[open] summary::before { transform: rotate(90deg); }
+
+/* 展開エリアのパディング */
+.prose details > :not(summary) {
+  padding: 0.75rem 1rem;
+}
+
 /* KaTeX overrides */
 .katex-display {
   overflow-x: auto;

@@ -37,15 +37,17 @@ interface Props {
   entryId: string;
   outgoingLinks: KnowledgeLink[];
   incomingLinks: KnowledgeLink[];
+  isWriter: boolean;
 }
 
 const LINK_TYPES: LinkType[] = ["PREREQUISITE", "DERIVATION", "APPLICATION"];
 
-export function LinkManager({ entryId, outgoingLinks, incomingLinks }: Props) {
+export function LinkManager({ entryId, outgoingLinks, incomingLinks, isWriter }: Props) {
   const router = useRouter();
   const [allEntries, setAllEntries] = useState<EntryRef[]>([]);
   const [selectedEntry, setSelectedEntry] = useState("");
   const [selectedType, setSelectedType] = useState<LinkType>("PREREQUISITE");
+  const [direction, setDirection] = useState<"outgoing" | "incoming">("outgoing");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -65,14 +67,15 @@ export function LinkManager({ entryId, outgoingLinks, incomingLinks }: Props) {
     setAdding(true);
     setError("");
     try {
+      // direction が "incoming" のとき sourceId/targetId を入れ替える。
+      // 例: この記事 B に対して「A が前提」と登録したい場合、
+      //     A → B の向きで保存する必要があるため targetId=entryId にする。
+      const sourceId = direction === "outgoing" ? entryId : selectedEntry;
+      const targetId = direction === "outgoing" ? selectedEntry : entryId;
       const res = await fetch("/api/links", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sourceId: entryId,
-          targetId: selectedEntry,
-          linkType: selectedType,
-        }),
+        body: JSON.stringify({ sourceId, targetId, linkType: selectedType }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -80,6 +83,7 @@ export function LinkManager({ entryId, outgoingLinks, incomingLinks }: Props) {
       } else {
         setShowForm(false);
         setSelectedEntry("");
+        setDirection("outgoing");
         router.refresh();
       }
     } finally {
@@ -118,13 +122,15 @@ export function LinkManager({ entryId, outgoingLinks, incomingLinks }: Props) {
                   >
                     {link.target!.title}
                   </Link>
-                  <button
-                    type="button"
-                    onClick={() => deleteLink(link.id)}
-                    className="opacity-0 group-hover:opacity-100 text-slate-400 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-all p-1"
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                  {isWriter && (
+                    <button
+                      type="button"
+                      onClick={() => deleteLink(link.id)}
+                      className="opacity-0 group-hover:opacity-100 text-slate-400 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-all p-1"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -162,7 +168,7 @@ export function LinkManager({ entryId, outgoingLinks, incomingLinks }: Props) {
         </div>
       )}
 
-      {showForm ? (
+      {isWriter && showForm ? (
         <div className="space-y-2 p-3 bg-slate-100 dark:bg-slate-800 rounded-lg">
           <select
             value={selectedType}
@@ -175,6 +181,33 @@ export function LinkManager({ entryId, outgoingLinks, incomingLinks }: Props) {
               </option>
             ))}
           </select>
+
+          {/* 方向切り替え: この記事が source か target かを選ぶ */}
+          <div className="flex rounded-md overflow-hidden border border-slate-300 dark:border-slate-700 text-xs">
+            <button
+              type="button"
+              onClick={() => setDirection("outgoing")}
+              className={`flex-1 flex items-center justify-center gap-1 py-1.5 transition-colors ${
+                direction === "outgoing"
+                  ? "bg-blue-600 text-white"
+                  : "bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+              }`}
+            >
+              この記事 <ArrowRight size={11} /> 選択記事
+            </button>
+            <button
+              type="button"
+              onClick={() => setDirection("incoming")}
+              className={`flex-1 flex items-center justify-center gap-1 py-1.5 border-l border-slate-300 dark:border-slate-700 transition-colors ${
+                direction === "incoming"
+                  ? "bg-blue-600 text-white"
+                  : "bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+              }`}
+            >
+              この記事 <ArrowLeft size={11} /> 選択記事
+            </button>
+          </div>
+
           <select
             value={selectedEntry}
             onChange={(e) => setSelectedEntry(e.target.value)}
@@ -201,6 +234,7 @@ export function LinkManager({ entryId, outgoingLinks, incomingLinks }: Props) {
               type="button"
               onClick={() => {
                 setShowForm(false);
+                setDirection("outgoing");
                 setError("");
               }}
               className="px-3 py-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white text-sm transition-colors"
@@ -209,7 +243,7 @@ export function LinkManager({ entryId, outgoingLinks, incomingLinks }: Props) {
             </button>
           </div>
         </div>
-      ) : (
+      ) : isWriter ? (
         <button
           type="button"
           onClick={() => setShowForm(true)}
@@ -218,7 +252,7 @@ export function LinkManager({ entryId, outgoingLinks, incomingLinks }: Props) {
           <Plus size={14} />
           リンクを追加
         </button>
-      )}
+      ) : null}
     </div>
   );
 }
