@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(pnpm --version)",
+      "Bash(rm -rf node_modules package-lock.json)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm prisma:*)",
+      "Bash(pnpm build:*)",
+      "Read(//c/Users/Owner/.claude/projects/c--Users-Owner-workspace-workspace-study-cs-kb/**)",
+      "Read(//c/Users/Owner/.claude/projects/c--Users-Owner-workspace-workspace-study-cs-kb/memory/**)",
+      "Bash(pnpm add:*)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\Owner\\workspace\\workspace_study\\cs-kb\\app\\entries\\[id]"
+    ]
+  }
+}

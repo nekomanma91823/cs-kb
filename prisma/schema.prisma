@@ -1,0 +1,93 @@
+/// Prisma 7 スキーマ定義
+///
+/// Prisma 7 の変更点:
+///   - provider = "prisma-client" (旧: "prisma-client-js")
+///   - output でクライアントの生成先を明示的に指定
+///   - datasource に url を書かず、prisma.config.ts と adapter で管理する
+///
+/// クライアントのインポート方法:
+///   import { PrismaClient } from "@/app/generated/prisma/client"
+///   import { LinkType } from "@/app/generated/prisma/enums"
+
+generator client {
+  provider = "prisma-client"
+  /// app/generated/prisma/ に生成することで Next.js の @ エイリアスからアクセス可能
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  /// url は prisma.config.ts の datasource.url から読み取る（Prisma 7 の新方式）
+}
+
+/// 知識記事エンティティ
+///
+/// contentHash: SHA-256 ハッシュ。完全一致の重複検出に使う。
+///   インデックスは張らず findFirst で検索する（挿入時のみ使うため許容）
+///
+/// embedding: OpenAI の text-embedding-3-small が生成する 1536 次元のベクトル。
+///   Json 型（float[] を JSON 配列として保存）を使っている理由:
+///   - pgvector を導入せず標準 PostgreSQL で動作させるため
+///   - 類似度計算は JavaScript 側で行う（記事数が少ない間は十分なパフォーマンス）
+///   - 将来的に pgvector に移行する場合は Unsupported("vector(1536)") に変更する
+///
+/// tags: PostgreSQL の配列型（String[]）
+///   Prisma は PostgreSQL の配列型をネイティブサポートしている。
+///   配列要素に対する検索は { has: "tag" } で行える。
+model KnowledgeEntry {
+  id          String   @id @default(cuid())
+  /// @unique: DB レベルの一意制約 + Prisma の findUnique で高速検索
+  title       String   @unique
+  content     String
+  contentHash String
+  tags        String[]
+  embedding   Json?    /// nullable: API キー未設定時は null のまま
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  outgoingLinks KnowledgeLink[] @relation("SourceEntry")
+  incomingLinks KnowledgeLink[] @relation("TargetEntry")
+
+  /// @@map でテーブル名をスネークケースにする（PostgreSQL の慣習）
+  @@map("knowledge_entries")
+}
+
+/// リンクの種別（3 種類）
+///
+/// PREREQUISITE: 「A を理解するには B が必要」という依存関係。
+///   循環参照を禁止（API 側で DFS で検証）。
+///
+/// DERIVATION: 技術の系譜・理論的な派生。
+///   例: 「ニューラルネットワーク」→「深層学習」→「Transformer」
+///
+/// APPLICATION: 理論の具体的な応用先。
+///   例: 「Transformer」→「GPT」「BERT」「Vision Transformer」
+enum LinkType {
+  PREREQUISITE
+  DERIVATION
+  APPLICATION
+}
+
+/// 知識間の有向リンクエンティティ
+///
+/// @@unique([sourceId, targetId, linkType]):
+///   同じ記事ペアに同じ種別のリンクを 2 本張ることを禁止する。
+///   異なる種別（例: A→B が PREREQUISITE かつ DERIVATION）は許容。
+///
+/// onDelete: Cascade:
+///   参照先の KnowledgeEntry が削除されたとき、このリンクも自動削除する。
+///   これにより「存在しない記事へのリンク（死にリンク）」が発生しない。
+///   RDB の外部キー制約を活用したデータ整合性の保証。
+model KnowledgeLink {
+  id        String   @id @default(cuid())
+  sourceId  String
+  targetId  String
+  linkType  LinkType
+  createdAt DateTime @default(now())
+
+  source KnowledgeEntry @relation("SourceEntry", fields: [sourceId], references: [id], onDelete: Cascade)
+  target KnowledgeEntry @relation("TargetEntry", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, targetId, linkType])
+  @@map("knowledge_links")
+}
