@@ -153,6 +153,8 @@ export function KnowledgeGraph({ nodes: rawNodes, edges: rawEdges }: Props) {
   // mousedown 後にマウスが実際に動いたかどうかのフラグ。
   // true になった場合のみドラッグ扱いにし、false のままなら mouseup をクリックとして処理する。
   const hasMoved = useRef(false);
+  // mousedown 時のカーソル位置。ドラッグ判定の閾値計算に使う。
+  const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
 
   // パン・ズームのビュー変換（Canvas の座標系オフセット）
   // x, y: 平行移動量、scale: 拡大率
@@ -266,14 +268,19 @@ export function KnowledgeGraph({ nodes: rawNodes, edges: rawEdges }: Props) {
 
     // [3] 速度減衰 + [4] 中心引力 + 座標更新
     const cx = width / 2, cy = height / 2;
+    // 速度の上限。これがないとリンクのないノードが反発力で無制限に加速して画面外に飛ぶ。
+    const MAX_V = 15;
     for (const n of ns) {
       if (!n.fx) {
-        // 中心方向への微弱な引力（係数 0.005 = ほぼ感じないレベル）
-        n.vx = (n.vx ?? 0) + ((cx - (n.x ?? 0)) * 0.005);
-        n.vy = (n.vy ?? 0) + ((cy - (n.y ?? 0)) * 0.005);
+        // 中心方向への引力（0.015: リンクのないノードが画面外に出ないよう保持できる強さ）
+        n.vx = (n.vx ?? 0) + ((cx - (n.x ?? 0)) * 0.015);
+        n.vy = (n.vy ?? 0) + ((cy - (n.y ?? 0)) * 0.015);
         // 速度減衰（Verlet 積分の damping）
         n.vx! *= 0.85;
         n.vy! *= 0.85;
+        // 速度クランプ: 1フレームあたりの最大移動量を制限
+        n.vx = Math.max(-MAX_V, Math.min(MAX_V, n.vx!));
+        n.vy = Math.max(-MAX_V, Math.min(MAX_V, n.vy!));
         // 座標を速度で更新（オイラー法: x_new = x + vx）
         n.x = (n.x ?? cx) + n.vx!;
         n.y = (n.y ?? cy) + n.vy!;
@@ -419,6 +426,7 @@ export function KnowledgeGraph({ nodes: rawNodes, edges: rawEdges }: Props) {
   /** ドラッグ開始: ノードを固定座標（fx/fy）にピン止めする */
   function onMouseDown(e: React.MouseEvent) {
     hasMoved.current = false; // mousedown のたびにリセット
+    mouseDownPos.current = { x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY };
     const node = getNodeAt(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
     if (node) {
       const { wx, wy } = toWorld(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
@@ -435,26 +443,35 @@ export function KnowledgeGraph({ nodes: rawNodes, edges: rawEdges }: Props) {
   }
 
   function onMouseMove(e: React.MouseEvent) {
-    const node = getNodeAt(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+    const ox = e.nativeEvent.offsetX;
+    const oy = e.nativeEvent.offsetY;
     if (dragging.current) {
-      hasMoved.current = true; // 実際に動いた = ドラッグ確定
-      const { wx, wy } = toWorld(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+      // 5px 以上移動した場合のみドラッグ確定（サブピクセルの微細な動きでクリックが消えるのを防ぐ）
+      if (!hasMoved.current && mouseDownPos.current) {
+        const dx = ox - mouseDownPos.current.x;
+        const dy = oy - mouseDownPos.current.y;
+        if (Math.sqrt(dx * dx + dy * dy) > 5) hasMoved.current = true;
+      }
+      const { wx, wy } = toWorld(ox, oy);
       // オフセット分を引いてノード中心をカーソルに追従させる
       dragging.current.node.fx = wx - dragging.current.offsetX;
       dragging.current.node.fy = wy - dragging.current.offsetY;
       dragging.current.node.x = wx - dragging.current.offsetX;
       dragging.current.node.y = wy - dragging.current.offsetY;
       setTooltip(null); // ドラッグ中はツールチップを非表示
-    } else if (node) {
-      // ホバー中のノードにツールチップを表示
-      // +12, -8: カーソルの右上にツールチップが重ならないようオフセット
-      setTooltip({
-        x: e.nativeEvent.offsetX + 12,
-        y: e.nativeEvent.offsetY - 8,
-        title: node.title,
-      });
     } else {
-      setTooltip(null);
+      const node = getNodeAt(ox, oy);
+      // ノード上ではポインターカーソルにしてクリック可能であることを示す
+      if (canvasRef.current) {
+        canvasRef.current.style.cursor = node ? "pointer" : "grab";
+      }
+      if (node) {
+        // ホバー中のノードにツールチップを表示
+        // +12, -8: カーソルの右上にツールチップが重ならないようオフセット
+        setTooltip({ x: ox + 12, y: oy - 8, title: node.title });
+      } else {
+        setTooltip(null);
+      }
     }
   }
 
@@ -465,7 +482,7 @@ export function KnowledgeGraph({ nodes: rawNodes, edges: rawEdges }: Props) {
       node.fx = null;
       node.fy = null;
       dragging.current = null;
-      // hasMoved が false = マウスが動いていない = クリックと判定してページ遷移
+      // hasMoved が false = 5px 未満の動き = クリックと判定してページ遷移
       if (!hasMoved.current) {
         router.push(`/entries/${node.id}`);
       }
