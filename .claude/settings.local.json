@@ -9,7 +9,8 @@
       "Bash(pnpm build:*)",
       "Read(//c/Users/Owner/.claude/projects/c--Users-Owner-workspace-workspace-study-cs-kb/**)",
       "Read(//c/Users/Owner/.claude/projects/c--Users-Owner-workspace-workspace-study-cs-kb/memory/**)",
-      "Bash(pnpm add:*)"
+      "Bash(pnpm add:*)",
+      "Bash(pnpm tsc:*)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Owner\\workspace\\workspace_study\\cs-kb\\app\\entries\\[id]"

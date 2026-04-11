@@ -23,8 +23,8 @@ export default async function EntriesPage() {
   ]);
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-8">
-      <div className="flex items-center justify-between mb-8">
+    <div className="max-w-4xl mx-auto px-4 md:px-6 py-6 md:py-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">記事一覧</h1>
           <p className="text-slate-500 text-sm mt-1">{entries.length} 件</p>

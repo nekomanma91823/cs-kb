@@ -20,7 +20,7 @@ export default async function NewEntryPage({
   const { title } = await searchParams;
 
   return (
-    <div className="h-full flex flex-col p-6">
+    <div className="h-full flex flex-col p-4 md:p-6">
       <h1 className="text-lg font-semibold text-slate-200 mb-4">新規記事作成</h1>
       <div className="flex-1 min-h-0">
         <EntryForm mode="create" initialTitle={title ?? ""} />

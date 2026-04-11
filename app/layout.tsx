@@ -5,6 +5,7 @@ import Link from "next/link";
 import { SearchBar } from "@/components/SearchBar";
 import { LogoutButton } from "@/components/LogoutButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { MobileMenu } from "@/components/MobileMenu";
 import { isWriter, getServerUser } from "@/lib/auth";
 import { Network, BookOpen, Plus, LogIn } from "lucide-react";
 
@@ -59,8 +60,8 @@ export default async function RootLayout({
         />
       </head>
       <body className="h-full flex bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200">
-        {/* Sidebar */}
-        <aside className="w-56 shrink-0 flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800">
+        {/* Sidebar - desktop only */}
+        <aside className="hidden md:flex w-56 shrink-0 flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800">
           <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800">
             <Link href="/" className="flex items-center gap-2 group">
               <Network size={20} className="text-blue-500 dark:text-blue-400" />
@@ -106,8 +107,22 @@ export default async function RootLayout({
 
         {/* Main area */}
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-12 shrink-0 flex items-center px-5 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/50 backdrop-blur">
-            <SearchBar />
+          <header className="h-12 shrink-0 flex items-center gap-2 px-3 md:px-5 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/50 backdrop-blur">
+            {/* Mobile: hamburger + logo */}
+            <MobileMenu writer={writer} user={user} />
+            <Link
+              href="/"
+              className="md:hidden flex items-center gap-1.5 shrink-0"
+            >
+              <Network size={16} className="text-blue-500 dark:text-blue-400" />
+              <span className="font-bold text-sm text-slate-900 dark:text-slate-100 tracking-tight">
+                cs-kb
+              </span>
+            </Link>
+            {/* Search bar */}
+            <div className="flex-1 min-w-0">
+              <SearchBar />
+            </div>
           </header>
           <main className="flex-1 min-h-0 overflow-auto">{children}</main>
         </div>

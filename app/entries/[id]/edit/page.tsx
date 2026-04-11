@@ -19,7 +19,7 @@ export default async function EditEntryPage({ params }: { params: Params }) {
   if (!entry) notFound();
 
   return (
-    <div className="h-full flex flex-col p-6">
+    <div className="h-full flex flex-col p-4 md:p-6">
       <div className="flex items-center gap-3 mb-4">
         <Link
           href={`/entries/${id}`}

@@ -38,10 +38,10 @@ export default async function EntryPage({ params }: { params: Params }) {
   const { embedding: _emb, ...safeEntry } = entry;
 
   return (
-    <div className="flex h-full">
+    <div className="flex flex-col md:flex-row md:h-full">
       {/* Main content */}
-      <article className="flex-1 min-w-0 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-6 py-8">
+      <article className="min-w-0 md:flex-1 md:overflow-y-auto">
+        <div className="max-w-3xl mx-auto px-4 md:px-6 py-6 md:py-8">
           {/* Header */}
           <div className="mb-8">
             <Link

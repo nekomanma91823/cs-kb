@@ -48,7 +48,7 @@ export function EntryRightPanel({ entryId, outgoingLinks, incomingLinks, isWrite
   const [tab, setTab] = useState<Tab>("links");
 
   return (
-    <aside className="w-64 shrink-0 border-l border-slate-200 dark:border-slate-800 flex flex-col">
+    <aside className="w-full md:w-64 md:shrink-0 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 flex flex-col">
       {/* タブヘッダー */}
       <div className="flex shrink-0 border-b border-slate-200 dark:border-slate-800">
         {TABS.map(({ key, label }) => (
