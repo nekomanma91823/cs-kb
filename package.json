@@ -5,6 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "cf:build": "pnpm dlx @opennextjs/cloudflare build",
+    "cf:preview": "pnpm dlx @opennextjs/cloudflare build && pnpm dlx @opennextjs/cloudflare preview",
+    "cf:deploy": "pnpm dlx @opennextjs/cloudflare deploy",
     "start": "next start",
     "lint": "eslint"
   },
