@@ -16,7 +16,17 @@ Workers Builds の設定例:
 - Build command: `pnpm run cf:build`
 - Deploy command: `pnpm run cf:deploy`
 
+このリポジトリには非対話ビルドのため以下を事前作成済み:
+
+- `open-next.config.ts`
+- `wrangler.jsonc`
+
 ## ローカル確認コマンド
 
 - `pnpm run cf:build`
 - `pnpm run cf:preview`
+
+## Windowsでのローカルビルド注意
+
+OpenNext は Windows で symlink 作成時に権限エラーになる場合がある。
+その場合は WSL 上で実行するか、Cloudflare の Linux ビルド環境で確認する。
